@@ -13,6 +13,14 @@ from transformers import (
     DataCollatorForLanguageModeling
 )
 
+from peft import (PeftModel,
+                  get_peft_config,
+                  get_peft_model,
+                  LoraConfig,
+                  TaskType,
+                  prepare_model_for_kbit_training
+)
+
 from src.args import default_args
 from src.orpo_trainer import ORPOTrainer
 from src.utils import preprocess_logits_for_metrics, dataset_split_selector
@@ -32,6 +40,20 @@ class ORPO(object):
             pass
         self.tokenizer.pad_token_id = self.tokenizer.eos_token_id
 
+
+
+        # Targeting all linear layers
+        target_modules = ['q_proj', 'k_proj', 'v_proj', 'o_proj', 'gate_proj', 'down_proj', 'up_proj']
+
+        lora_config = LoraConfig(
+            r=16,
+            target_modules=target_modules,
+            lora_alpha=8,
+            lora_dropout=0.05,
+            bias="none",
+            task_type="CAUSAL_LM"
+        )
+
         # Load Model
         print(">>> 2. Loading Model")
         if self.args.flash_attention_2:
@@ -45,7 +67,11 @@ class ORPO(object):
                                                               cache_dir=self.args.cache_dir,
                                                               torch_dtype=torch.bfloat16,
                                                               load_in_4bit=True,)
-                                                          
+
+        self.model = prepare_model_for_kbit_training(self.model)
+        self.model = get_peft_model(self.model, lora_config)
+        self.model.print_trainable_parameters()
+
         # Load Dataset
         print(">>> 3. Loading Dataset")
         self.data = load_dataset(self.args.data_name, cache_dir=self.args.cache_dir)
