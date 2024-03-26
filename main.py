@@ -62,12 +62,23 @@ class ORPO(object):
             test_split = data_split[1]
 
             test = self.data[test_split].filter(self.filter_dataset)
-            self.test = test.map(self.preprocess_dataset, batched=True, num_proc=self.args.num_proc, remove_columns=self.data[test_split].column_names)       
+            # Apply the fraction to the test dataset if necessary
+            if self.args.data_fraction < 1.0:
+                test = test.shuffle().select(range(int(len(test) * self.args.data_fraction)))
+            self.test = test.map(self.preprocess_dataset, batched=True, num_proc=self.args.num_proc,
+                                 remove_columns=self.data[test_split].column_names)
 
+        # Filter the training dataset e
         train = self.data[train_split].filter(self.filter_dataset)
-        print(f"\n\n>>> {len(train)} / {len(self.data[train_split])} rows left after filtering by prompt length.")
-        self.train = train.map(self.preprocess_dataset, batched=True, num_proc=self.args.num_proc, remove_columns=self.data[train_split].column_names)                       
-                
+        # Apply the fraction to the training dataset
+        if self.args.data_fraction < 1.0:
+            train = train.shuffle().select(range(int(len(train) * self.args.data_fraction)))
+        print(f"\n\n>>> {len(train)} / {len(self.data[train_split])} rows left after filtering by fraction.")
+
+        self.train = train.map(self.preprocess_dataset, batched=True, num_proc=self.args.num_proc,
+                               remove_columns=self.data[train_split].column_names)
+
+
         # Set WANDB & Logging Configurations
         self.run_name = f"{self.args.model_name.split('/')[-1]}-{self.args.data_name.split('/')[-1]}-lambda{self.args.alpha}-ORPO-{self.start.tm_mday}-{self.start.tm_hour}-{self.start.tm_min}"
         self.save_dir = os.path.join('./checkpoints/', f"{self.args.data_name.split('/')[-1]}/{self.run_name}")
