@@ -38,11 +38,13 @@ class ORPO(object):
             self.model = AutoModelForCausalLM.from_pretrained(self.args.model_name, 
                                                               cache_dir=self.args.cache_dir,
                                                               torch_dtype=torch.bfloat16,
+                                                              load_in_4bit=True,
                                                               attn_implementation="flash_attention_2")
         else:
             self.model = AutoModelForCausalLM.from_pretrained(self.args.model_name, 
                                                               cache_dir=self.args.cache_dir,
-                                                              torch_dtype=torch.bfloat16)
+                                                              torch_dtype=torch.bfloat16,
+                                                              load_in_4bit=True,)
                                                           
         # Load Dataset
         print(">>> 3. Loading Dataset")
